@@ -320,141 +320,141 @@ void main(){
 // Reference to the container where Three.js will attach the canvas
 const canvas = ref(null);
 
-function OrbitControls(element, rayOrigin, rayTarget) {
+// function OrbitControls(element, rayOrigin, rayTarget) {
 
-    const temp = {
-      mouseStartX: 0,
-      mouseStartY: 0,
-      ro: [0,0,0],
-      rt: [0,0,0],
-      mode: -1,
-      isDragging: false
-    };
+//     const temp = {
+//       mouseStartX: 0,
+//       mouseStartY: 0,
+//       ro: [0,0,0],
+//       rt: [0,0,0],
+//       mode: -1,
+//       isDragging: false
+//     };
 
-    function pos2LatLon([x, y, z]) {
-        const radius = Math.sqrt(x * x + y * y + z * z);
-        const lat = Math.acos(y / radius);
-        const lon = Math.atan2(z, x);
-        return [ lat, lon, radius ];
-    }
+//     function pos2LatLon([x, y, z]) {
+//         const radius = Math.sqrt(x * x + y * y + z * z);
+//         const lat = Math.acos(y / radius);
+//         const lon = Math.atan2(z, x);
+//         return [ lat, lon, radius ];
+//     }
 
-    function LatLon2Pos(lat, lon, r) {
-        const x = r * Math.sin(lat) * Math.cos(lon);
-        const z = r * Math.sin(lat) * Math.sin(lon);
-        const y = r * Math.cos(lat);
-        return [x, y, z];
-    }
+//     function LatLon2Pos(lat, lon, r) {
+//         const x = r * Math.sin(lat) * Math.cos(lon);
+//         const z = r * Math.sin(lat) * Math.sin(lon);
+//         const y = r * Math.cos(lat);
+//         return [x, y, z];
+//     }
 
-    const vcross = ([a1,a2,a3],[b1,b2,b3]) => {
-       return [ a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1 ];
-    }
-    const vadd = ([a1,a2,a3],[b1,b2,b3]) => {
-       return [ a1+b1, a2+b2, a3+b3 ];
-    }
-    const vsm = ([a1,a2,a3],s) => {
-       return [ a1*s, a2*s, a3*s ];
-    }
+//     const vcross = ([a1,a2,a3],[b1,b2,b3]) => {
+//       return [ a2 * b3 - a3 * b2, a3 * b1 - a1 * b3, a1 * b2 - a2 * b1 ];
+//     }
+//     const vadd = ([a1,a2,a3],[b1,b2,b3]) => {
+//       return [ a1+b1, a2+b2, a3+b3 ];
+//     }
+//     const vsm = ([a1,a2,a3],s) => {
+//       return [ a1*s, a2*s, a3*s ];
+//     }
 
-    // Function to handle mouse down events (start dragging)
-    function mouseDown(e) {
-        e.preventDefault();
-        temp.mouseStartX = e.clientX;
-        temp.mouseStartY = e.clientY;
+//     // Function to handle mouse down events (start dragging)
+//     function mouseDown(e) {
+//         e.preventDefault();
+//         temp.mouseStartX = e.clientX;
+//         temp.mouseStartY = e.clientY;
 
-        // Left mouse button for rotate, right for pan
-        // temp.mode = e.button === 0 ? 0 : -1;
-        temp.mode = e.button === 0 ? 0 : (e.button === 2 ? 1 : -1);
+//         // Left mouse button for rotate, right for pan
+//         // temp.mode = e.button === 0 ? 0 : -1;
+//         temp.mode = e.button === 0 ? 0 : (e.button === 2 ? 1 : -1);
 
-        if (temp.mode === -1) return;
+//         if (temp.mode === -1) return;
 
-        const dir = rayOrigin.map((item, index) => item - rayTarget[index]);
+//         const dir = rayOrigin.map((item, index) => item - rayTarget[index]);
 
-        temp.rayOrigin = rayOrigin.map(x=>x);
-        temp.rayTarget = rayTarget.map(x=>x);
-        temp.dir = dir;
-        temp.right = vcross([0,1,0],temp.dir);
-        temp.up = vcross(temp.dir,temp.right);
-        temp.latLon0 = pos2LatLon(
-          dir
-        );
+//         temp.rayOrigin = rayOrigin.map(x=>x);
+//         temp.rayTarget = rayTarget.map(x=>x);
+//         temp.dir = dir;
+//         temp.right = vcross([0,1,0],temp.dir);
+//         temp.up = vcross(temp.dir,temp.right);
+//         temp.latLon0 = pos2LatLon(
+//           dir
+//         );
 
-        temp.isDragging = true;
-        element.addEventListener('mousemove', mouseMove);
-        element.addEventListener('mouseup', mouseUp);
-        element.addEventListener('mouseout', mouseUp);
-    }
+//         temp.isDragging = true;
+//         element.addEventListener('mousemove', mouseMove);
+//         element.addEventListener('mouseup', mouseUp);
+//         element.addEventListener('mouseout', mouseUp);
+//     }
 
-    // Function to handle mouse move events (while dragging)
-    function mouseMove(e) {
-        if (!temp.isDragging) return;
+//     // Function to handle mouse move events (while dragging)
+//     function mouseMove(e) {
+//         if (!temp.isDragging) return;
 
-        const dx = e.clientX - temp.mouseStartX;
-        const dy = e.clientY - temp.mouseStartY;
+//         const dx = e.clientX - temp.mouseStartX;
+//         const dy = e.clientY - temp.mouseStartY;
 
-        if (temp.mode === 0) {
-            // Rotate: Adjust latitude (up/down) and longitude (left/right)
-            const sensitivity = 0.002;
-            const latChange = dy * sensitivity;
-            const lonChange = -dx * sensitivity;
+//         if (temp.mode === 0) {
+//             // Rotate: Adjust latitude (up/down) and longitude (left/right)
+//             const sensitivity = 0.002;
+//             const latChange = dy * sensitivity;
+//             const lonChange = -dx * sensitivity;
 
-            let lat = temp.latLon0[0] - latChange;
-            let lon = temp.latLon0[1] + lonChange;
-            // let lat = temp.latLon0[0];
-            // let lon = temp.latLon0[1];
-            // console.log(temp.latLon0[0],lat)
+//             let lat = temp.latLon0[0] - latChange;
+//             let lon = temp.latLon0[1] + lonChange;
+//             // let lat = temp.latLon0[0];
+//             // let lon = temp.latLon0[1];
+//             // console.log(temp.latLon0[0],lat)
 
-            // Clamp latitude between 0 and Pi (no upside-down camera)
-            if (lat < 0.1) lat = 0.1;
-            if (lat > Math.PI/2 - 0.1) lat = Math.PI/2 - 0.1;
+//             // Clamp latitude between 0 and Pi (no upside-down camera)
+//             if (lat < 0.1) lat = 0.1;
+//             if (lat > Math.PI/2 - 0.1) lat = Math.PI/2 - 0.1;
 
-            rayOrigin = LatLon2Pos(lat,lon,temp.latLon0[2]).map((item, index) => rayTarget[index] + item);
+//             rayOrigin = LatLon2Pos(lat,lon,temp.latLon0[2]).map((item, index) => rayTarget[index] + item);
 
-            // rayOrigin[0] = Math.sin(lat) * Math.cos(lon) * distance;
-            // rayOrigin[1] = Math.cos(lat) * distance;
-            // rayOrigin[2] = Math.sin(lat) * Math.sin(lon) * distance;
+//             // rayOrigin[0] = Math.sin(lat) * Math.cos(lon) * distance;
+//             // rayOrigin[1] = Math.cos(lat) * distance;
+//             // rayOrigin[2] = Math.sin(lat) * Math.sin(lon) * distance;
 
-        } else if (temp.mode === 1) {
-            // // Pan: Move both the ray origin and target in screen space
-            const panSpeed = 0.001;
-            const panX = dx * panSpeed;
-            const panY = -dy * panSpeed;
+//         } else if (temp.mode === 1) {
+//             // // Pan: Move both the ray origin and target in screen space
+//             const panSpeed = 0.001;
+//             const panX = dx * panSpeed;
+//             const panY = -dy * panSpeed;
 
-            const delta = vadd(vsm(temp.up,panY),vsm(temp.right,panX));
-            const rayTarget_ = vadd(temp.rayTarget,delta);
-            // if(temp.rayTarget[1]+delta[1]<0.01){
-            //   delta[1] = 0;
-            // }
+//             const delta = vadd(vsm(temp.up,panY),vsm(temp.right,panX));
+//             const rayTarget_ = vadd(temp.rayTarget,delta);
+//             // if(temp.rayTarget[1]+delta[1]<0.01){
+//             //   delta[1] = 0;
+//             // }
 
-            rayOrigin = vadd(temp.rayOrigin,delta);
-            rayTarget = vadd(temp.rayTarget,delta);
-        }
+//             rayOrigin = vadd(temp.rayOrigin,delta);
+//             rayTarget = vadd(temp.rayTarget,delta);
+//         }
 
-        // Dispatch event with updated ray origin and target
-        element.dispatchEvent(new CustomEvent('update', { detail: [rayOrigin, rayTarget] }));
-    }
+//         // Dispatch event with updated ray origin and target
+//         element.dispatchEvent(new CustomEvent('update', { detail: [rayOrigin, rayTarget] }));
+//     }
 
-    // Function to handle mouse up (stop dragging)
-    function mouseUp() {
-        temp.isDragging = false;
-        element.removeEventListener('mousemove', mouseMove);
-        element.removeEventListener('mouseup', mouseUp);
-        element.removeEventListener('mouseout', mouseUp);
-    }
+//     // Function to handle mouse up (stop dragging)
+//     function mouseUp() {
+//         temp.isDragging = false;
+//         element.removeEventListener('mousemove', mouseMove);
+//         element.removeEventListener('mouseup', mouseUp);
+//         element.removeEventListener('mouseout', mouseUp);
+//     }
 
-    const mouseWheel = e=>{
-      const delta = (e.deltaY > 0 ? 1 : -1)*0.1;
-      const dir = rayOrigin.map((item, index) => (item - rayTarget[index])*delta);
+//     const mouseWheel = e=>{
+//       const delta = (e.deltaY > 0 ? 1 : -1)*0.1;
+//       const dir = rayOrigin.map((item, index) => (item - rayTarget[index])*delta);
 
-      rayOrigin = vadd(rayOrigin,dir);
-      // rayTarget = vadd(rayTarget,dir);
-      element.dispatchEvent(new CustomEvent('update', { detail: [rayOrigin, rayTarget] }));
-    };
+//       rayOrigin = vadd(rayOrigin,dir);
+//       // rayTarget = vadd(rayTarget,dir);
+//       element.dispatchEvent(new CustomEvent('update', { detail: [rayOrigin, rayTarget] }));
+//     };
 
-    // Attach the mouse down event to start dragging
-    element.addEventListener('mousedown', mouseDown);
-    element.addEventListener('mousewheel', mouseWheel);
-    element.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent right-click menu
-}
+//     // Attach the mouse down event to start dragging
+//     element.addEventListener('mousedown', mouseDown);
+//     element.addEventListener('mousewheel', mouseWheel);
+//     element.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent right-click menu
+// }
 
 const init = ()=>{
   // Set up scene, camera, and renderer
@@ -549,8 +549,6 @@ const init = ()=>{
   iProps.socket.on('update_display', display=>{
     iProps.eye.value = display ? iProps.eye.left : iProps.eye.right;
   });
-
-  // iProps.socket.io.on('update_camera', cam=>updateCamera({detail:cam},true));
 };
 
 onMounted(init);

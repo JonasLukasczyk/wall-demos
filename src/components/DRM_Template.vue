@@ -532,12 +532,6 @@ const init = ()=>{
     renderer.dispose();
   });
 
-  // iProps.socket = new socket({
-  //   debug: true,
-  //   connection: 'http://localhost:4444'
-  // });
-
-  // iProps.socket.io.on('update_camera', cam=>updateCamera({detail:cam},true));
   iProps.socket = new io('http://localhost:4444');
   iProps.socket.on('connect', ()=>{
     iProps.connected = true;
@@ -549,8 +543,6 @@ const init = ()=>{
   iProps.socket.on('update_display', display=>{
     iProps.eye.value = display ? iProps.eye.left : iProps.eye.right;
   });
-
-  // iProps.socket.io.on('update_camera', cam=>updateCamera({detail:cam},true));
 };
 
 onMounted(init);
