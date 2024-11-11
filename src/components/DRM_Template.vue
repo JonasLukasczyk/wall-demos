@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import {io} from "socket.io-client";
 
 const iProps = reactive({
+  showMenu: false,
   eye: {type:'f',value:0.01, left:-0.01, right:0.01},
   connected: false,
   socket: null
@@ -225,35 +226,6 @@ vec3 render( in vec3 ro, in vec3 rd ){
     col = col*lin*exp( -t/TMAX*5. );
 
     return col;
-
-    // return nor;
-    // vec3 ref = reflect( rd, nor );
-
-    // material
-    // col = 0.2 + 0.2*sin( m*2.0 + vec3(0.0,1.0,2.0) );
-    // float ks = 1.0;
-
-    // if( m<1.5 ){
-    //     // project pixel footprint into the plane
-    //     vec3 dpdx = ro.y*(rd/rd.y-rdx/rdx.y);
-    //     vec3 dpdy = ro.y*(rd/rd.y-rdy/rdy.y);
-
-    //     float f = checkersGradBox( 3.0*pos.xz, 3.0*dpdx.xz, 3.0*dpdy.xz );
-    //     col = 0.15 + f*vec3(0.05);
-    //     ks = 0.4;
-    // }
-
-    // lighting
-    // float occ = calcAO( pos, nor );
-
-    // vec3 lin = vec3(0.0);
-
-    // col = lin;
-
-    // col = mix( col, vec3(0.7,0.7,0.9), 1.0-exp( -0.0001*t*t*t ) );
-  //   }
-
-	return vec3( clamp(col,0.0,1.0) );
 }
 
 float random(vec2 co){
@@ -298,6 +270,7 @@ void main(){
 
     float apertureSize = uAperatureSize / 1000.;
     vec3 focalPoint = ro + uFocusDistance * rd;
+    // vec3 col = render(ro,rd);
     vec3 col;
     for(int i=0; i<DOF_STEPS; i++){
         vec3 aperturePoint = ro + apertureSize*(
@@ -551,8 +524,21 @@ onMounted(init);
 
 <template>
   <canvas ref="canvas" class='canvas' />
-  <div class='menu'>
-    <q-list padding class="rounded-borders text-white bg-grey-10" style="border-radius: 20px">
+  <div
+    class="menu rounded-borders text-white bg-grey-10" style="border-radius: 20px"
+  >
+
+     <div>
+      <q-checkbox
+        v-model="iProps.showMenu"
+        checked-icon="chevron_right"
+        unchecked-icon="chevron_left"
+        color="white"
+        keep-color
+      />
+    </div>
+
+    <q-list v-if='iProps.showMenu'>
       <q-item>
         <q-checkbox
           v-model="iProps.connected"
@@ -579,6 +565,7 @@ onMounted(init);
     position: absolute;
     top:1em;
     right:10px;
-    width: 300px;
+    max-width: 300px;
+    text-align: right;
   }
 </style>
