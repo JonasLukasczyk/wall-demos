@@ -2,13 +2,10 @@
 
 import { onMounted, onUnmounted, ref, reactive } from 'vue';
 import * as THREE from 'three';
-import {io} from "socket.io-client";
 
 const iProps = reactive({
   showMenu: false,
-  eye: {type:'f',value:0.01, left:-0.01, right:0.01},
-  connected: false,
-  socket: null
+  eye: {type:'f',value:0.02}
 });
 
 const vertexShader = `
@@ -245,19 +242,25 @@ void main(){
     float iTime = 0.0;
     float time = 32.0 + iTime*1.5;
 
-    vec2 uv = vPos.xy*0.5+0.5;
-    vec2 fragCoord = uv*uResolution;
+    vec2 uvd = vec2(vPos.xy*0.5+0.5);
+    vec2 uv = vec2(
+      fract(uvd.x * 2.0),
+      uvd.y
+    );
+
+    vec2 fragCoord = uv*vec2(uResolution.x*0.5,uResolution.y);
 
     // ray
     const float fl = 2.5; // focal length
 
     vec3 right = normalize(cross(vec3(0,1,0),uRayTarget-uRayOrigin));
-    vec3 delta = uEye*right;
+    vec3 delta = uvd.x<0.5 ? -uEye*right : uEye*right;
 
     vec3 ro = uRayOrigin+delta;
     vec3 ta = uRayTarget+delta;
     mat3 ca = setCamera( ro, ta, 0.0 );
-    vec2 p = (2.0*fragCoord-uResolution.xy)/uResolution.y;
+    vec2 p = (2.0*fragCoord-vec2(uResolution.x*0.5,uResolution.y))/uResolution.y;
+    // vec2 p = (2.0*fragCoord-uResolution.xy)/uResolution.y;
     vec3 rd = ca * normalize( vec3(p,fl) );
 
     // vec3 col = render(
@@ -340,10 +343,10 @@ function OrbitControls(element, rayOrigin, rayTarget) {
 
         if (temp.mode === -1) return;
 
-        const dir = rayOrigin.map((item, index) => item - rayTarget[index]);
+        const dir = rayOrigin.value.map((item, index) => item - rayTarget.value[index]);
 
-        temp.rayOrigin = rayOrigin.map(x=>x);
-        temp.rayTarget = rayTarget.map(x=>x);
+        temp.rayOrigin = rayOrigin.value.map(x=>x);
+        temp.rayTarget = rayTarget.value.map(x=>x);
         temp.dir = dir;
         temp.right = vcross([0,1,0],temp.dir);
         temp.up = vcross(temp.dir,temp.right);
@@ -380,7 +383,7 @@ function OrbitControls(element, rayOrigin, rayTarget) {
             if (lat < 0.1) lat = 0.1;
             if (lat > Math.PI/2 - 0.1) lat = Math.PI/2 - 0.1;
 
-            rayOrigin = LatLon2Pos(lat,lon,temp.latLon0[2]).map((item, index) => rayTarget[index] + item);
+            rayOrigin.value = LatLon2Pos(lat,lon,temp.latLon0[2]).map((item, index) => rayTarget.value[index] + item);
 
             // rayOrigin[0] = Math.sin(lat) * Math.cos(lon) * distance;
             // rayOrigin[1] = Math.cos(lat) * distance;
@@ -393,17 +396,9 @@ function OrbitControls(element, rayOrigin, rayTarget) {
             const panY = -dy * panSpeed;
 
             const delta = vadd(vsm(temp.up,panY),vsm(temp.right,panX));
-            const rayTarget_ = vadd(temp.rayTarget,delta);
-            // if(temp.rayTarget[1]+delta[1]<0.01){
-            //   delta[1] = 0;
-            // }
-
-            rayOrigin = vadd(temp.rayOrigin,delta);
-            rayTarget = vadd(temp.rayTarget,delta);
+            rayOrigin.value = vadd(temp.rayOrigin,delta);
+            rayTarget.value = vadd(temp.rayTarget,delta);
         }
-
-        // Dispatch event with updated ray origin and target
-        element.dispatchEvent(new CustomEvent('update', { detail: [rayOrigin, rayTarget] }));
     }
 
     // Function to handle mouse up (stop dragging)
@@ -469,14 +464,7 @@ const init = ()=>{
   const renderer = new THREE.WebGLRenderer({canvas:canvas.value});
   // renderer.setSize(window.innerWidth, window.innerHeight);
 
-  var controls = new OrbitControls(canvas.value, material.uniforms.uRayOrigin.value, material.uniforms.uRayTarget.value);
-  var updateCamera = (e,suppress_io) => {
-    material.uniforms.uRayOrigin.value = e.detail[0];
-    material.uniforms.uRayTarget.value = e.detail[1];
-    if(!suppress_io)
-      iProps.socket.emit('update_camera', e.detail);
-  };
-  canvas.value.addEventListener('update', updateCamera);
+  var controls = new OrbitControls(canvas.value, material.uniforms.uRayOrigin, material.uniforms.uRayTarget);
 
   // Animation loop
   const animate = () => {
@@ -504,18 +492,6 @@ const init = ()=>{
     window.removeEventListener('resize', onResize);
     renderer.dispose();
   });
-
-  iProps.socket = new io('http://localhost:4444');
-  iProps.socket.on('connect', ()=>{
-    iProps.connected = true;
-  });
-  iProps.socket.on('disconnect', ()=>{
-    iProps.connected = false;
-  });
-  iProps.socket.on('update_camera', cam=>updateCamera({detail:cam},true));
-  iProps.socket.on('update_display', display=>{
-    iProps.eye.value = display ? iProps.eye.left : iProps.eye.right;
-  });
 };
 
 onMounted(init);
@@ -538,16 +514,9 @@ onMounted(init);
       />
     </div>
 
-    <q-list v-if='iProps.showMenu'>
+    <q-list v-if='iProps.showMenu' dense>
       <q-item>
-        <q-checkbox
-          v-model="iProps.connected"
-          label="Connected"
-          disable
-        />
-      </q-item>
-      <q-item>
-        <q-toggle v-model="iProps.eye.value" label="Eye" :true-value="iProps.eye.left" :false-value="iProps.eye.right" />
+        <q-input type='number' label='Eye Distance' v-model='iProps.eye.value' dense />
       </q-item>
     </q-list>
   </div>

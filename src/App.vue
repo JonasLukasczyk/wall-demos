@@ -1,5 +1,6 @@
 <script setup>
-  import PARTICLES_Template from './components/PARTICLES_Template.vue'
+  import DRM_Template from './components/DRM_Template.vue'
+  // import PARTICLES_Template from './components/PARTICLES_Template.vue'
 </script>
 
 <template>
