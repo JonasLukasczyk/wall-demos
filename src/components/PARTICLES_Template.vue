@@ -2,257 +2,342 @@
 
 import { onMounted, onUnmounted, ref, reactive } from 'vue';
 
-import * as THREE from 'three';
-import { Fn, uniform, texture, instanceIndex, float, hash, vec3, storage, If } from 'three/tsl';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import Stats from 'three/addons/libs/stats.module.js';
-
-import {io} from "socket.io-client";
-
-
-// Reference to the container where Three.js will attach the canvas
 const canvas = ref(null);
 
-const particleCount = 1000000;
 
-const gravity = uniform( - .0098 );
-const bounce = uniform( .8 );
-const friction = uniform( .99 );
-const size = uniform( .12 );
 
-const clickPosition = uniform( new THREE.Vector3() );
+import * as THREE from 'three/webgpu';
+import { length, select, float, If, PI, color, cos, instanceIndex, Loop, mix, mod, sin, storage, Fn, uint, uniform, uniformArray, hash, vec2, vec3, vec4, sqrt, log, normalize, cameraProjectionMatrix, dot, positionLocal, Discard } from 'three/tsl';
+import Stats from 'three/addons/libs/stats.module.js';
 
-let camera, scene, renderer;
-let controls, stats;
-let computeParticles;
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const timestamps = document.getElementById( 'timestamps' );
+let time_0 = 0;
+const time_i = uniform(0);
+
+let camera, scene, renderer, controls, updateCompute, stats;
 
 function init() {
+  time_0 = Date.now()*0.001;
 
-  const [canvasWidth,canvasHeight] = [canvas.value.parentNode.clientWidth, canvas.value.parentNode.clientHeight].map(x=>parseInt(x));
+  stats = new Stats();
+  canvas.value.parentNode.appendChild( stats.dom );
 
-  camera = new THREE.PerspectiveCamera( 50, canvasWidth / canvasHeight, .1, 1000 );
-  camera.position.set( 15, 30, 15 );
+    const [canvasWidth,canvasHeight] = [canvas.value.parentNode.clientWidth, canvas.value.parentNode.clientHeight].map(x=>parseInt(x));
 
-  scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera( 25, canvasWidth / canvasHeight, 0.1, 100 );
+	camera.position.set( 3, 5, 3 );
 
-  // textures
+	scene = new THREE.Scene();
+	// renderer
 
-  const textureLoader = new THREE.TextureLoader();
-  const map = textureLoader.load( 'textures/sprite1.png' );
+	renderer = new THREE.WebGPURenderer( { antialias: true, canvas: canvas.value } );
+	renderer.setPixelRatio( window.devicePixelRatio );
+	renderer.setSize( canvasWidth, canvasHeight );
+	renderer.setAnimationLoop( animate );
+	renderer.setClearColor( '#000000' );
 
-  //
+	controls = new OrbitControls( camera, renderer.domElement );
+// 	controls.target = new THREE.Vector3(50,0,50);
+	controls.enableDamping = true;
+	controls.minDistance = 0.1;
+	controls.maxDistance = 50;
 
-  const createBuffer = () => storage( new THREE.StorageInstancedBufferAttribute( particleCount, 3 ), 'vec3', particleCount );
+	window.addEventListener( 'resize', onWindowResize );
 
-  const positionBuffer = createBuffer();
-  const velocityBuffer = createBuffer();
-  const colorBuffer = createBuffer();
+	// particles
 
-  // compute
+	const count = 0 ? 20000000 : 200000;
+// 	const count = 1 ? 8000000 : 200000;
+	const material = new THREE.SpriteNodeMaterial( {  } );
 
-  const computeInit = Fn( () => {
+	// update compute
 
-    const position = positionBuffer.element( instanceIndex );
-    const color = colorBuffer.element( instanceIndex );
+	const update = Fn( () => {
+
+	} );
+	updateCompute = update().compute( count );
+
+	// nodes
+
+	// material.positionNode = positionBuffer.toAttribute();
+	material.positionNode = Fn( () => {
 
     const randX = hash( instanceIndex );
     const randY = hash( instanceIndex.add( 2 ) );
     const randZ = hash( instanceIndex.add( 3 ) );
 
-    position.x = randX.mul( 100 ).add( - 50 );
-    position.y = 0; // randY.mul( 10 );
-    position.z = randZ.mul( 100 ).add( - 50 );
+    const uv = vec2(randX.mul(2.0).add(-1),randY.mul(2.0).add(-1));
 
-    color.assign( vec3( randX, randY, randZ ) );
+    const d = float(1.).div(sqrt(length(uv)));
+    d.mulAssign(d.mul(d));
+    // const d = log(length(uv).add(0.5).mul(5));
+    let r = time_i.mul(0.0001).mul(d.add(-1.0));
 
-  } )().compute( particleCount );
 
-  //
+    const uvr = vec2(
+      cos(r).mul(uv.x).add(sin(r).mul(uv.y).mul(-1)),
+      sin(r).mul(uv.x).add(cos(r).mul(uv.y))
+    );
 
-  const computeUpdate = Fn( () => {
+    const pos = vec3(uvr.x.mul(50),d.mul(-0.05),uvr.y.mul(50));
 
-    const position = positionBuffer.element( instanceIndex );
-    const velocity = velocityBuffer.element( instanceIndex );
+    return pos;
 
-    velocity.addAssign( vec3( 0.00, gravity, 0.00 ) );
-    position.addAssign( velocity );
+    // let theta = hash( instanceIndex ).mul(100);
+    // let r = hash( instanceIndex.add( 2 ) ).mul(100);
+    // const t = hash( instanceIndex.add( 3 ) );
 
-    velocity.mulAssign( friction );
+    // r = select( t.greaterThan( r ), t, r );
+    // theta.mulAssign(6.28318548);
 
-    // floor
+    // return vec3(
+    //     r.mul(cos(theta)),
+    //     0,
+    //     r.mul(sin(theta))
+    // );
 
-    If( position.y.lessThan( 0 ), () => {
+    // return pos;
 
-      position.y = 0;
-      velocity.y = velocity.y.negate().mul( bounce );
+    // return vec3(
+    //   randX.mul( 100 ).add( - 50 ),
+    //   0,
+    //   randZ.mul( 100 ).add( - 50 )
+    // );
 
-      // floor friction
+		// return vec3( time_i.mul(0.1),float(instanceIndex).mul(0.1),0 );
+	} )();
 
-      velocity.x = velocity.x.mul( .9 );
-      velocity.z = velocity.z.mul( .9 );
+	material.colorNode = Fn( () => {
 
-    } );
+	 // const uv = uv(0).mul(2.0).add(-1.0);
+	  const uv = positionLocal.xy;
+	  const l = length( uv );
+	  If( l.greaterThan( 1 ), ()=>Discard());
 
-  } );
 
-  computeParticles = computeUpdate().compute( particleCount );
+	 // return vec4(1,0,0,1);
 
-  // create nodes
+	  const z = sqrt(
+	    float(1)
+  	    .sub(
+  	      uv.x.mul(uv.x)
+        ).sub(
+          uv.y.mul(uv.y)
+        )
+    );
 
-  const textureNode = texture( map );
+	  const normal = cameraProjectionMatrix.mul(vec4(uv.x,z,uv.y,1));
+    // return vec4( normal,1 );
 
-  // create particles
+    const light_dir = cameraProjectionMatrix.mul(vec4(1,0,0,1));
+  //   const alpha = select( l.lessThan( 1.0 ), 1, 0 );
 
-  const particleMaterial = new THREE.SpriteNodeMaterial();
-  particleMaterial.colorNode = textureNode.mul( colorBuffer.element( instanceIndex ) );
-  particleMaterial.positionNode = positionBuffer.toAttribute();
-  particleMaterial.scaleNode = size;
-  particleMaterial.depthWrite = false;
-  particleMaterial.depthTest = true;
-  particleMaterial.transparent = true;
+  //   // return select( l.lessThan( 1.0 ), vec4( 1,0,0,1 ), vec4( 0,0,0,0 ) );
+  //   // return vec4( dot(vec3(1,0,0),normal),0,0,1 );
+    return vec4( dot(normal.xyz,light_dir.xyz),0,0,1 );
+    // return vec4( 1,0,0,1 );
+    // return select( l.lessThan( 1.0 ), vec4( 1,0,0,1 ), vec4( 0,0,0,0 ) );
 
-  const particles = new THREE.Mesh( new THREE.PlaneGeometry( 1, 1 ), particleMaterial );
-  particles.count = particleCount;
-  particles.frustumCulled = false;
-  scene.add( particles );
+	} )();
+	material.scaleNode = Fn( () => {
+		return 0.01;
+	} )();
 
-  //
 
-  const helper = new THREE.GridHelper( 60, 40, 0x303030, 0x303030 );
-  scene.add( helper );
+	// mesh
 
-  const geometry = new THREE.PlaneGeometry( 1000, 1000 );
-  geometry.rotateX( - Math.PI / 2 );
+// 	const geometry = new THREE.OctahedronGeometry( 1, 1 );
 
-  const plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( { visible: false } ) );
-  scene.add( plane );
+  // create a simple square shape. We duplicate the top left and bottom right
+  // vertices because each vertex needs to appear once per triangle.
+  const geometry = new THREE.BufferGeometry();
 
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
+  const vertices = new Float32Array( [
+    -1,-1,0,
+    3,-1,0,
+    -1,3,0,
+  ] );
 
-  //
-  renderer = new THREE.WebGPURenderer( {canvas:canvas.value, antialias: true, trackTimestamp: true } );
-  renderer.setPixelRatio( window.devicePixelRatio );
-  renderer.setSize( canvasWidth, canvasHeight );
-  renderer.setAnimationLoop( animate );
+  // const indices = [
+  // 	0, 1, 2,
+  // 	2, 3, 0,
+  // ];
 
-  stats = new Stats();
-  canvas.value.parentNode.appendChild( stats.dom );
+  // geometry.setIndex( indices );
+  geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+  // geometry.setAttribute( 'uv', new THREE.BufferAttribute( uvs, 2 ) );
 
-  renderer.computeAsync( computeInit );
+  // // itemSize = 3 because there are 3 values (components) per vertex
+  // geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+  // geometry.setAttribute( 'uv', new THREE.BufferAttribute( uvs, 2 ) );
 
-  // click event
-
-  const computeHit = Fn( () => {
-
-    const position = positionBuffer.element( instanceIndex );
-    const velocity = velocityBuffer.element( instanceIndex );
-
-    const dist = position.distance( clickPosition );
-    const direction = position.sub( clickPosition ).normalize();
-    const distArea = float( 6 ).sub( dist ).max( 0 );
-
-    const power = distArea.mul( .01 );
-    const relativePower = power.mul( hash( instanceIndex ).mul( .5 ).add( .5 ) );
-
-    velocity.assign( velocity.add( direction.mul( relativePower ) ) );
-
-  } )().compute( particleCount );
-
-  //
-
-  function onMove( event ) {
-
-    pointer.set( ( event.clientX / window.innerWidth ) * 2 - 1, - ( event.clientY / window.innerHeight ) * 2 + 1 );
-
-    raycaster.setFromCamera( pointer, camera );
-
-    const intersects = raycaster.intersectObjects( [ plane ], false );
-
-    if ( intersects.length > 0 ) {
-
-      const { point } = intersects[ 0 ];
-
-      // move to uniform
-
-      clickPosition.value.copy( point );
-      clickPosition.value.y = - 1;
-
-      // compute
-
-      renderer.computeAsync( computeHit );
-
-    }
-
-  }
-
-  // events
-
-  renderer.domElement.addEventListener( 'pointermove', onMove );
-
-  controls = new OrbitControls( camera, renderer.domElement );
-  controls.minDistance = 5;
-  controls.maxDistance = 200;
-  controls.target.set( 0, 0, 0 );
-  controls.update();
-
-  //
-
-  window.addEventListener( 'resize', onWindowResize );
-
-  // gui
-
-  const gui = new GUI();
-
-  gui.add( gravity, 'value', - .0098, 0, 0.0001 ).name( 'gravity' );
-  gui.add( bounce, 'value', .1, 1, 0.01 ).name( 'bounce' );
-  gui.add( friction, 'value', .96, .99, 0.01 ).name( 'friction' );
-  gui.add( size, 'value', .12, .5, 0.01 ).name( 'size' );
+// 	const geometry = new THREE.PlaneGeometry( 1, 1 );
+	const mesh = new THREE.InstancedMesh( geometry, material, count );
+	mesh.frustumCulled = false;
+	scene.add( mesh );
 
 }
 
 function onWindowResize() {
-
   const [canvasWidth,canvasHeight] = [canvas.value.parentNode.clientWidth, canvas.value.parentNode.clientHeight].map(x=>parseInt(x));
+	camera.aspect = canvasWidth / canvasHeight;
+	camera.updateProjectionMatrix();
 
-  camera.aspect = canvasWidth / canvasHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize( canvasWidth, canvasHeight );
+	renderer.setSize( canvasWidth, canvasHeight );
 
 }
 
 async function animate() {
-
   stats.update();
+  time_i.value = Date.now()*0.001 - time_0;
 
-  await renderer.computeAsync( computeParticles );
+	controls.update();
 
-  await renderer.renderAsync( scene, camera );
-
-  // throttle the logging
-
-  if ( renderer.hasFeature( 'timestamp-query' ) ) {
-
-    if ( renderer.info.render.calls % 5 === 0 ) {
-
-      timestamps.innerHTML = `
-
-        Compute ${renderer.info.compute.frameCalls} pass in ${renderer.info.compute.timestamp.toFixed( 6 )}ms<br>
-        Draw ${renderer.info.render.drawCalls} pass in ${renderer.info.render.timestamp.toFixed( 6 )}ms`;
-
-    }
-
-  } else {
-
-    timestamps.innerHTML = 'Timestamp queries not supported';
-
-  }
-
+		renderer.compute( updateCompute );
+	renderer.render( scene, camera );
 
 }
+
+// import Stats from 'three/addons/libs/stats.module.js';
+// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// import * as THREE from 'three/webgpu';
+// import { Fn, uniform, texture, instanceIndex, float, hash, vec3, vec4, storage, If } from 'three/tsl';
+
+
+// // Reference to the container where Three.js will attach the canvas
+// const canvas = ref(null);
+
+// // const particleCount = 134217728;
+// const particleCount = 80000;
+
+// let time_0 = 0;
+// const time_i = uniform(0);
+// const speed = uniform(0.1);
+
+// const size = uniform( .4 );
+
+// const clickPosition = uniform( new THREE.Vector3() );
+
+// let camera, scene, renderer;
+// let controls, stats;
+// let computeParticles;
+
+// const timestamps = document.getElementById( 'timestamps' );
+
+// function init() {
+//   time_0 = Date.now()*0.001;
+
+//   const [canvasWidth,canvasHeight] = [canvas.value.parentNode.clientWidth, canvas.value.parentNode.clientHeight].map(x=>parseInt(x));
+
+//   camera = new THREE.PerspectiveCamera( 50, canvasWidth / canvasHeight, .1, 1000 );
+//   camera.position.set( 15, 30, 15 );
+
+//   scene = new THREE.Scene();
+
+//   const createBuffer = () => storage( new THREE.StorageInstancedBufferAttribute( particleCount, 3 ), 'vec3', particleCount );
+
+//   const positionBuffer = createBuffer();
+//   // const colorBuffer = createBuffer();
+
+//   // compute
+
+//   const computeInit = Fn( () => {
+
+//     const position = positionBuffer.element( instanceIndex );
+
+//     const randX = hash( instanceIndex );
+//     const randY = hash( instanceIndex.add( 2 ) );
+//     const randZ = hash( instanceIndex.add( 3 ) );
+
+//     position.x = randX.mul( 100 ).add( - 50 );
+//     position.y = 0; // randY.mul( 10 );
+//     position.z = randZ.mul( 100 ).add( - 50 );
+
+//     // const color = colorBuffer.element( instanceIndex );
+//     // color.assign( vec3( randX, randY, randZ ) );
+
+//   } )().compute( particleCount );
+
+//   computeParticles = Fn( () => {
+//     // return vec3(0,2.0,0);
+//     const position = positionBuffer.element( instanceIndex );
+//     position.y = time_i.mul(speed);
+//   } )().compute( particleCount );
+
+
+
+//   // create particles
+//   const particleMaterial = new THREE.SpriteNodeMaterial();
+// //   particleMaterial.positionNode = Fn( () => {
+// // 		return vec3( 0,1,0 );
+// // 	} )().compute(particleCount);
+//   particleMaterial.positionNode = positionBuffer.toAttribute();
+//   particleMaterial.colorNode = Fn( () => {
+// 		return vec4( 0,1,0,1 );
+// 	} );
+//   particleMaterial.scaleNode = size;
+//   particleMaterial.depthWrite = false;
+//   particleMaterial.depthTest = true;
+//   particleMaterial.transparent = true;
+
+//   const particles = new THREE.InstancedMesh( new THREE.PlaneGeometry( 1, 1 ), particleMaterial, particleCount );
+//   particles.count = particleCount;
+//   particles.frustumCulled = false;
+//   scene.add( particles );
+
+//   const helper = new THREE.GridHelper( 60, 40, 0x303030, 0x303030 );
+//   scene.add( helper );
+
+//   const geometry = new THREE.PlaneGeometry( 1000, 1000 );
+//   geometry.rotateX( - Math.PI / 2 );
+
+//   const plane = new THREE.Mesh( geometry, new THREE.MeshBasicMaterial( { visible: false } ) );
+//   scene.add( plane );
+
+//   const raycaster = new THREE.Raycaster();
+//   const pointer = new THREE.Vector2();
+
+//   //
+//   renderer = new THREE.WebGPURenderer( {canvas:canvas.value, antialias: true, trackTimestamp: true } );
+//   renderer.setPixelRatio( window.devicePixelRatio );
+//   renderer.setSize( canvasWidth, canvasHeight );
+//   renderer.setAnimationLoop( animate );
+
+//   stats = new Stats();
+//   canvas.value.parentNode.appendChild( stats.dom );
+
+//   renderer.computeAsync( computeInit );
+
+//   controls = new OrbitControls( camera, renderer.domElement );
+//   controls.minDistance = 5;
+//   controls.maxDistance = 200;
+//   controls.target.set( 0, 0, 0 );
+//   controls.update();
+
+//   window.addEventListener( 'resize', onWindowResize );
+// }
+
+// function onWindowResize() {
+
+//   const [canvasWidth,canvasHeight] = [canvas.value.parentNode.clientWidth, canvas.value.parentNode.clientHeight].map(x=>parseInt(x));
+
+//   camera.aspect = canvasWidth / canvasHeight;
+//   camera.updateProjectionMatrix();
+
+//   renderer.setSize( canvasWidth, canvasHeight );
+
+// }
+
+// async function animate() {
+//   stats.update();
+
+//   time_i.value = Date.now()*0.001 - time_0;
+//   // renderer.info.render.frame++;
+
+//   await renderer.computeAsync( computeParticles );
+//   await renderer.renderAsync( scene, camera );
+// }
 
 onMounted(init);
 

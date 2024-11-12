@@ -1,12 +1,12 @@
 <script setup>
   import DRM_Template from './components/DRM_Template.vue'
-  // import PARTICLES_Template from './components/PARTICLES_Template.vue'
+  import PARTICLES_Template from './components/PARTICLES_Template.vue'
 </script>
 
 <template>
   <div class='frame'>
-    <DRM_Template />
-    <!--<PARTICLES_Template />-->
+    <!--<DRM_Template />-->
+    <PARTICLES_Template />
   </div>
 </template>
 
