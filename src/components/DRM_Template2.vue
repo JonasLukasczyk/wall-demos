@@ -3,6 +3,8 @@
 import { onMounted, onUnmounted, ref, reactive } from 'vue';
 import * as THREE from 'three';
 
+import Stats from 'three/addons/libs/stats.module.js';
+
 const iProps = reactive({
   showMenu: false,
   eye: {type:'f',value:0.02}
@@ -127,6 +129,45 @@ vec2 raycast( in vec3 ro, in vec3 rd ){
       return vec2(t,m);
 }
 
+float comuteHeight(vec2 uv){
+  float d = length(uv);
+  return -exp(-d*d);
+}
+
+
+vec2 castRay( in vec3 ro, in vec3 rd ){
+
+    float t = 0.001;
+    for(int i=0; i<1000; i++ ){
+      vec3  p = ro + rd*t;
+      float h = comuteHeight( p.xz );
+      if( p.y < h ){
+          return vec2(t-0.01,1);
+      }
+      t += 0.01;
+    }
+    return vec2(100,0);
+}
+
+vec2 castRayMin( in vec3 ro, in vec3 rd ){
+
+    float t = 0.01;
+    float dt = 0.001;
+    float dm = 1.;
+    for(int i=0; i<100; i++ ){
+      vec3  p = ro + rd*t;
+      float h = comuteHeight( p.xz );
+      // dm = min(dm, p.y-h);
+      // dm = min(dm, 5.0*(p.y-h)/t);
+      if( p.y < h ){
+          dm = 0.3;
+          break;
+      }
+      t += dt;
+    }
+    return vec2(100,dm);
+}
+
 // Use the Distance to Objects for Penumbra
 float softshadow( in vec3 ro, in vec3 rd, in float mint, in float maxt ){
     float res = 1.0;
@@ -176,53 +217,30 @@ float calcAO( in vec3 pos, in vec3 nor ){
 vec3 render( in vec3 ro, in vec3 rd ){
 
     // raycast scene
-    vec2 res = raycast(ro,rd);
+    vec2 res = castRay(ro,rd);
     float t = res.x;
     float m = res.y;
 
     vec3 pos = ro + t*rd;
-    vec3 nor = calcNormal( pos );
-    vec3 ref = reflect( rd, nor );
+    vec3 ld = normalize(vec3(20,10,20)-pos);
+    vec2 s = castRayMin(pos,ld);
+    vec3 poss = pos+s.x*ld;
+    vec3 diff = abs(pos)*vec3(s.y);
+    // vec3 diff = vec3(s.x>3000.0 ? 0.5 : 0.1);
+    // vec3 diff = vec3(poss+1.0);
+    // vec3 diff = pos*(vec3(0.3+s.y*1.6));
+    // vec3 diff = vec3(s.y<0.001 ? 1 : 0);
+    // vec3 diff = abs(pos)*vec3(0.3)+vec3(s.y*2.);
+    // vec3 diff = (pos+vec3(0.1)) * (s.y < 0. ? 0.1 : (0.9+0.3*s.y));
+    return diff;
 
-    vec3 col;
-    if(m<0.5) {
-      col = vec3(1,0,0);
-    } else if(m<1.5) {
-      float f = mod( floor(6.0*pos.z) * floor(6.0*pos.x), 4.0);
-      col = 0.4 + 0.1*f*vec3(0.3,1,1);
-    }
-    else
-      col = vec3(1,0,0);
-      // col = uEye > 0 ? vec3(0,1,0) : vec3(1,0,0);
+    // //vec3 nor = calcNormal( pos );
 
-    // float occ = calcAO( pos, nor );
+    // vec3 diff = vec3(1,0,0);
+    // // float l = dot(vec3(1,1,1),nor);
 
-    // float occ = calcAO( pos, nor );
-    // float occ = 1.0;
-    float occ = calcAO( pos, nor );
-    vec3  lig = normalize( vec3(-0.6, 0.7, -0.5) );
-    float amb = clamp( 0.5+0.5*nor.y, 0.0, 1.0 );
-    float dif = clamp( dot( nor, lig ), 0.0, 1.0 );
-    float bac = clamp( dot( nor, normalize(vec3(-lig.x,0.0,-lig.z))), 0.0, 1.0 )*clamp( 1.0-pos.y,0.0,1.0);
-    float dom = smoothstep( -0.1, 0.1, ref.y );
-    float fre = pow( clamp(1.0+dot(nor,rd),0.0,1.0), 2.0 );
-    float spe = pow(clamp( dot( ref, lig ), 0.0, 1.0 ),16.0);
-
-    dif *= softshadow( pos, lig, 0.02, 2.5 );
-    dom *= softshadow( pos, ref, 0.02, 10. );
-
-    vec3 lin = vec3(0.0);
-    vec3 temp = vec3(0.50,0.70,1.00)*occ;
-    vec3 temp2 = 1.20*dif*vec3(1.00,0.85,0.85);
-    lin += temp2;
-    lin += spe*temp2;
-    lin += 0.20*amb*temp;
-    lin += 0.30*dom*temp;
-    lin += 0.30*bac*vec3(0.25,0.25,0.25)*occ;
-    lin += 0.40*fre*vec3(1.00,1.00,1.00)*occ;
-    col = col*lin*exp( -t/TMAX*5. );
-
-    return col;
+    // return pos;
+    // // return nor;
 }
 
 float random(vec2 co){
@@ -260,13 +278,7 @@ void main(){
     vec3 ta = uRayTarget+delta;
     mat3 ca = setCamera( ro, ta, 0.0 );
     vec2 p = (2.0*fragCoord-vec2(uResolution.x*0.5,uResolution.y))/uResolution.y;
-    // vec2 p = (2.0*fragCoord-uResolution.xy)/uResolution.y;
     vec3 rd = ca * normalize( vec3(p,fl) );
-
-    // vec3 col = render(
-    //     ro,
-    //     rd
-    // );
 
     // float centerFocusDistance = raycast(ro, normalize(uRayTarget-uRayOrigin)).x;
     // vec3 focalPoint = uRayOrigin + centerFocusDistance * (rd);
@@ -415,7 +427,6 @@ function OrbitControls(element, rayOrigin, rayTarget) {
       rayOrigin.value = vadd(rayOrigin.value,dir);
     };
 
-
     // Attach the mouse down event to start dragging
     element.addEventListener('mousedown', mouseDown);
     element.addEventListener('mousewheel', mouseWheel);
@@ -424,6 +435,8 @@ function OrbitControls(element, rayOrigin, rayTarget) {
 
 const init = ()=>{
   // Set up scene, camera, and renderer
+  let stats = new Stats();
+  canvas.value.parentNode.appendChild( stats.dom );
 
   const fullscreenQuadCamera = new THREE.OrthographicCamera( -1, 1, 1, -1, 1, 1000 );
   fullscreenQuadCamera.position.set(0,0,1);
@@ -466,11 +479,10 @@ const init = ()=>{
 
   // Animation loop
   const animate = () => {
-    requestAnimationFrame(animate);
+    stats.update();
     renderer.render(fullscreenQuadScene, fullscreenQuadCamera);
   };
-
-  animate();
+  renderer.setAnimationLoop(animate);
 
   // Handle window resizing
   const onResize = () => {

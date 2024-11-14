@@ -6,7 +6,7 @@ const canvas = ref(null);
 
 import * as THREE from 'three/webgpu';
 
-import { length, select, float, If, PI, color, cos, instanceIndex, Loop, mix, mod, sin, storage, Fn, uint, uniform, uniformArray, hash, vec2, vec3, vec4, sqrt, log, normalize, modelViewMatrix, dot, positionLocal, Discard, positionViewDirection,modelWorldMatrix,positionWorldDirection,materialRotation,rotate,cameraProjectionMatrix,cameraProjectionMatrixInverse,diffuseColor, modelViewProjection, positionWorld,positionView,ViewportDepthNode,texture,cross,mat2,mat3,mat4,abs,storageObject,floor,fract,mul,pow,atan2,cameraNormalMatrix,cameraPosition } from 'three/tsl';
+import { length, select, float, If, PI, color, cos, instanceIndex, Loop, mix, mod, sin, storage, Fn, uint, uniform, uniformArray, hash, vec2, vec3, vec4, sqrt, log, normalize, modelViewMatrix, dot, positionLocal, Discard, positionViewDirection,modelWorldMatrix,positionWorldDirection,materialRotation,rotate,cameraProjectionMatrix,cameraProjectionMatrixInverse,diffuseColor, modelViewProjection, positionWorld,positionView,ViewportDepthNode,texture,cross,mat2,mat3,mat4,abs,storageObject,floor,fract,mul,pow,atan2,cameraNormalMatrix,cameraPosition,exp } from 'three/tsl';
 import Stats from 'three/addons/libs/stats.module.js';
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -103,7 +103,10 @@ const MaterialFactory = {
 
   positionNode: Fn( () => {
 
+
     // compute random sample on unit disk (accepted bias towards center)
+    // const randX = fract( sin( dot( vec2(instanceIndex,instanceIndex), vec2( 12.9898, 78.233 ) ) ).mul( 43758.5453 ) );
+    // const randY = fract( sin( dot( vec2(instanceIndex,instanceIndex+1), vec2( 12.9898, 78.233 ) ) ).mul( 43758.5453 ) );
     const randX = hash( instanceIndex );
     const randY = hash( instanceIndex.add( 1 ) );
     const r = randX.mul(2*3.1415);
@@ -132,10 +135,16 @@ const MaterialFactory = {
 
     // compute rotated uv
     const uvr = RM2.mul(uv);
+    // const y = float(-0.01).div(d);
+    const dr = d.mul(10);
+    const randZ = hash( instanceIndex.add( 2 ) );
+    const y = float(-0.1).mul(exp(pow(dr,2).mul(-1))).add(randZ.mul(0.01));
 
-    const pos_funnel = vec3(uvr.x,float(-0.01).div(d),uvr.y);
+    const pos_funnel = vec3(uvr.x,y,uvr.y);
 
-    const d_pos_funnel = float(0.01).div(d.pow(2));
+    return pos_funnel;
+
+    const d_pos_funnel = float(0.1).div(d.pow(2));
     // const pos_tangent = vec3(
     //   1,
     //   d_pos_funnel,
@@ -191,12 +200,31 @@ const MaterialFactory = {
           positionLocal.y.mul(positionLocal.y)
         )
     );
-
     const normal_view = vec4(positionLocal.x,positionLocal.y,z,1);
-    const world_up = cameraPosition;
 
-    const dir = normalize(cameraPosition.sub(pos))
 
+    const f = normalize(cameraPosition.sub(pos));
+    const u = vec3(0,1,0);
+    const r = normalize(cross(f, u));
+
+    const RM = mat3(
+      r,u,f
+    );
+
+    const normal_world = RM.mul(normal_view);
+
+    // return vec4(
+    //   normal_world.xxx,
+    //   1
+    // );
+    return vec4(
+      vec3(dot(vec3(1,0,0),normal_world)).add(0.3),
+      1
+    );
+    return vec4(
+      normal_world,
+      1
+    );
     return vec4(
       dir,
       1
@@ -219,11 +247,6 @@ const MaterialFactory = {
       0
     );
 
-    const RM = mat3(
-      cos(pos.w), 0, sin(pos.w).mul(-1),
-      0, 1, 0,
-      sin(pos.w), 0, cos(pos.w)
-    );
 
     const pos_normal = RM.mul(normalize(cross(vec3(0,0,1),pos_tangent)));
     // const pos_normal = vec3(
