@@ -7,8 +7,8 @@
 <template>
   <div class='frame'>
     <!--<DRM_Template />-->
-    <DRM_Template2 />
-    <!--<PARTICLES_Template />-->
+    <!--<DRM_Template2 />-->
+    <PARTICLES_Template />
   </div>
 </template>
 

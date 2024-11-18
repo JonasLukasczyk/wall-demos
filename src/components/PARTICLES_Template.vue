@@ -6,7 +6,7 @@ const canvas = ref(null);
 
 import * as THREE from 'three/webgpu';
 
-import { length, select, float, If, PI, color, cos, instanceIndex, Loop, mix, mod, sin, storage, Fn, uint, uniform, uniformArray, hash, vec2, vec3, vec4, sqrt, log, normalize, modelViewMatrix, dot, positionLocal, Discard, positionViewDirection,modelWorldMatrix,positionWorldDirection,materialRotation,rotate,cameraProjectionMatrix,cameraProjectionMatrixInverse,diffuseColor, modelViewProjection, positionWorld,positionView,ViewportDepthNode,texture,cross,mat2,mat3,mat4,abs,storageObject,floor,fract,mul,pow,atan2,cameraNormalMatrix,cameraPosition,exp } from 'three/tsl';
+import { length, select, float, If, PI, color, cos, instanceIndex, Loop, mix, mod, sin, storage, Fn, uint, uniform, uniformArray, hash, vec2, vec3, vec4, sqrt, log, normalize, modelViewMatrix, dot, positionLocal, Discard, positionViewDirection,modelWorldMatrix,positionWorldDirection,materialRotation,rotate,cameraProjectionMatrix,cameraProjectionMatrixInverse,diffuseColor, modelViewProjection, positionWorld,positionView,ViewportDepthNode,texture,cross,mat2,mat3,mat4,abs,storageObject,floor,fract,mul,pow,atan2,cameraNormalMatrix,cameraPosition,exp,uvec2,textureStore } from 'three/tsl';
 import Stats from 'three/addons/libs/stats.module.js';
 
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -101,6 +101,8 @@ const MaterialFactory = {
     vortex_rotation_radius: uniform(4)
   },
 
+  computeHeight: null,
+
   positionNode: Fn( () => {
 
 
@@ -114,57 +116,63 @@ const MaterialFactory = {
       randY.mul(cos(r)),
       randY.mul(sin(r))
     );
+    const uvn = uv.mul(0.5).add(0.5);
 
-    // compute inverted distance to center
-    const d = length(uv);
-    const di = float(1).sub(d);
+    const h = texture(MaterialFactory.shadowTexture,uvn).x;
+    return vec3(uv.x,h.mul(-1),uv.y);
 
-    // compute rotation (faster closer to center)
-    const phi = time_i.mul(0.1).mul(di.pow(MaterialFactory.uniforms.vortex_rotation_radius));
-    // const phi = time_i.mul(0.99).mul(d.pow(MaterialFactory.uniforms.vortex_rotation_radius));
+    // // compute inverted distance to center
+    // const d = length(uv);
+    // const di = float(1).sub(d);
 
-    const RM = mat3(
-      cos(phi), 0, sin(phi),
-      0, 1, 0,
-      sin(phi).mul(-1), 0, cos(phi)
-    );
-    const RM2 = mat2(
-      cos(phi), sin(phi),
-      sin(phi).mul(-1), cos(phi)
-    );
+    // // compute rotation (faster closer to center)
+    // const phi = time_i.mul(0.1).mul(di.pow(MaterialFactory.uniforms.vortex_rotation_radius));
+    // // const phi = time_i.mul(0.99).mul(d.pow(MaterialFactory.uniforms.vortex_rotation_radius));
 
-    // compute rotated uv
-    const uvr = RM2.mul(uv);
-    // const y = float(-0.01).div(d);
-    const dr = d.mul(10);
-    const randZ = hash( instanceIndex.add( 2 ) );
-    const y = float(-0.1).mul(exp(pow(dr,2).mul(-1))).add(randZ.mul(0.01));
-
-    const pos_funnel = vec3(uvr.x,y,uvr.y);
-
-    return pos_funnel;
-
-    const d_pos_funnel = float(0.1).div(d.pow(2));
-    // const pos_tangent = vec3(
-    //   1,
-    //   d_pos_funnel,
-    //   0
+    // const RM = mat3(
+    //   cos(phi), 0, sin(phi),
+    //   0, 1, 0,
+    //   sin(phi).mul(-1), 0, cos(phi)
     // );
-    // const pos_normal = normalize((cross(vec3(0,0,1),pos_tangent)));
-    // const pos_normal_r = RM.mul(pos_normal);
+    // const RM2 = mat2(
+    //   cos(phi), sin(phi),
+    //   sin(phi).mul(-1), cos(phi)
+    // );
 
-    // noise
-    const polar_uv = vec2(
-      atan2(uvr.y,uvr.x).div(2*3.1415),
-      length(uvr.xy)
-    );
-    polar_uv.y.mulAssign(4);
-    const n = perlin_noise(vec3(polar_uv,0.0).mul(20)).mul(0.5).add(0.5).mul(d);
+    // return pos_funnel;
+
+    // // compute rotated uv
+    // const uvr = RM2.mul(uv);
+    // // const y = float(-0.01).div(d);
+    // const dr = d.mul(10);
+    // const randZ = hash( instanceIndex.add( 2 ) );
+    // const y = float(-0.1).mul(exp(pow(dr,2).mul(-1))).add(randZ.mul(0.01));
+
+    // const pos_funnel = vec3(uvr.x,y,uvr.y);
+
+    // return pos_funnel;
+
+    // const d_pos_funnel = float(0.1).div(d.pow(2));
+    // // const pos_tangent = vec3(
+    // //   1,
+    // //   d_pos_funnel,
+    // //   0
+    // // );
+    // // const pos_normal = normalize((cross(vec3(0,0,1),pos_tangent)));
+    // // const pos_normal_r = RM.mul(pos_normal);
+
+    // // noise
+    // const polar_uv = vec2(
+    //   atan2(uvr.y,uvr.x).div(2*3.1415),
+    //   length(uvr.xy)
+    // );
+    // polar_uv.y.mulAssign(4);
+    // const n = perlin_noise(vec3(polar_uv,0.0).mul(20)).mul(0.5).add(0.5).mul(d);
 
 
-    return vec3(pos_funnel.add(vec3(0,1,0).mul(n).mul(0.1)));
-    return pos_funnel.add(pos_normal_r.mul(0.15));
-    return vec4(pos_funnel,phi);
+    // return vec3(pos_funnel.add(vec3(0,1,0).mul(n).mul(0.1)));
+    // return pos_funnel.add(pos_normal_r.mul(0.15));
+    // return vec4(pos_funnel,phi);
 
     // create position
     // return pos_funnel.add(pos_normal.mul(0.1));
@@ -183,82 +191,94 @@ const MaterialFactory = {
     const l = length( positionLocal.xy );
     If( l.greaterThan( 1 ), ()=>Discard());
 
-    const pos = MaterialFactory.positionNode();
-
-    // const randX = hash( instanceIndex.add( 1 ) );
-    const randX = fract( sin( dot( vec2(instanceIndex,instanceIndex), vec2( 12.9898, 78.233 ) ) ).mul( 43758.5453 ) );
-
-    const diffuse = vec3(
-      randX.mul(0.3).add(0.3)
+    const randX = hash( instanceIndex );
+    const randY = hash( instanceIndex.add( 1 ) );
+    const r = randX.mul(2*3.1415);
+    const uv = vec2(
+      randY.mul(cos(r)),
+      randY.mul(sin(r))
     );
+    const uvn = uv.mul(0.5).add(0.5);
 
-    const z = sqrt(
-      float(1)
-        .sub(
-          positionLocal.x.mul(positionLocal.x)
-        ).sub(
-          positionLocal.y.mul(positionLocal.y)
-        )
-    );
-    const normal_view = vec4(positionLocal.x,positionLocal.y,z,1);
+    const h = texture(MaterialFactory.shadowTexture,uvn).y;
+    return vec4(1,h,0,1);
+
+    // const pos = MaterialFactory.positionNode();
+
+    // // const randX = hash( instanceIndex.add( 1 ) );
+    // const randX = fract( sin( dot( vec2(instanceIndex,instanceIndex), vec2( 12.9898, 78.233 ) ) ).mul( 43758.5453 ) );
+
+    // const diffuse = vec3(
+    //   randX.mul(0.3).add(0.3)
+    // );
+
+    // const z = sqrt(
+    //   float(1)
+    //     .sub(
+    //       positionLocal.x.mul(positionLocal.x)
+    //     ).sub(
+    //       positionLocal.y.mul(positionLocal.y)
+    //     )
+    // );
+    // const normal_view = vec4(positionLocal.x,positionLocal.y,z,1);
 
 
-    const f = normalize(cameraPosition.sub(pos));
-    const u = vec3(0,1,0);
-    const r = normalize(cross(f, u));
+    // const f = normalize(cameraPosition.sub(pos));
+    // const u = vec3(0,1,0);
+    // const r = normalize(cross(f, u));
 
-    const RM = mat3(
-      r,u,f
-    );
+    // const RM = mat3(
+    //   r,u,f
+    // );
 
-    const normal_world = RM.mul(normal_view);
+    // const normal_world = RM.mul(normal_view);
 
+    // // return vec4(
+    // //   normal_world.xxx,
+    // //   1
+    // // );
     // return vec4(
-    //   normal_world.xxx,
+    //   vec3(dot(vec3(1,0,0),normal_world)).add(0.3),
     //   1
     // );
-    return vec4(
-      vec3(dot(vec3(1,0,0),normal_world)).add(0.3),
-      1
-    );
-    return vec4(
-      normal_world,
-      1
-    );
-    return vec4(
-      dir,
-      1
-    );
-    return vec4(
-      vec3(dot(world_up.xyz,vec3(1,0,0))),
-      1
-    );
-    return vec4(
-      world_up.xyz.dot(normal_view.xyz),
-      1
-    );
-    const d = length(pos.xz);
-
-    const d_pos_funnel = float(0.01).div(d.pow(2));
-
-    const pos_tangent = vec3(
-      1,
-      d_pos_funnel,
-      0
-    );
-
-
-    const pos_normal = RM.mul(normalize(cross(vec3(0,0,1),pos_tangent)));
-    // const pos_normal = vec3(
-    //   float(-0.01).div(d.pow(2)),1,0
+    // return vec4(
+    //   normal_world,
+    //   1
     // );
-    // const pos_normal = normalize(vec3(
-    //   float(0.01).div(d.pow(2)),1,0
-    // ));
+    // return vec4(
+    //   dir,
+    //   1
+    // );
+    // return vec4(
+    //   vec3(dot(world_up.xyz,vec3(1,0,0))),
+    //   1
+    // );
+    // return vec4(
+    //   world_up.xyz.dot(normal_view.xyz),
+    //   1
+    // );
+    // const d = length(pos.xz);
 
-    return vec4(pos_normal,1);
-    return vec4(pos_tangent,1);
-    return vec4(d_pos_funnel,0,0,1);
+    // const d_pos_funnel = float(0.01).div(d.pow(2));
+
+    // const pos_tangent = vec3(
+    //   1,
+    //   d_pos_funnel,
+    //   0
+    // );
+
+
+    // const pos_normal = RM.mul(normalize(cross(vec3(0,0,1),pos_tangent)));
+    // // const pos_normal = vec3(
+    // //   float(-0.01).div(d.pow(2)),1,0
+    // // );
+    // // const pos_normal = normalize(vec3(
+    // //   float(0.01).div(d.pow(2)),1,0
+    // // ));
+
+    // return vec4(pos_normal,1);
+    // return vec4(pos_tangent,1);
+    // return vec4(d_pos_funnel,0,0,1);
 
     // // dir light
     // const lightPos = vec3(lightPosX,lightPosY,lightPosZ);
@@ -439,8 +459,100 @@ function init() {
 
   window.addEventListener( 'resize', onWindowResize );
 
-  // particles
+  // height field
+  const heightRes = 1024;
+  const heightCount = heightRes*heightRes;
 
+  const heightTexture = new THREE.StorageTexture( heightRes, heightRes );
+  heightTexture.type = THREE.FloatType;
+  MaterialFactory.shadowTexture = new THREE.StorageTexture( heightRes, heightRes );
+  MaterialFactory.shadowTexture.type = THREE.FloatType;
+  MaterialFactory.computeHeight = Fn( () => {
+    const posX = instanceIndex.modInt( heightRes );
+    const posY = instanceIndex.div( heightRes );
+    const indexUV = uvec2( posX, posY );
+    const uvn = vec2(posX,posY).div(heightRes);
+    const uv = uvn.mul(2).sub(1);
+
+    // compute inverted distance to center
+    const d = length(uv);
+    const di = float(1).sub(d);
+
+    // compute rotation (faster closer to center)
+    const phi = time_i.mul(0.1).mul(di.pow(MaterialFactory.uniforms.vortex_rotation_radius));
+
+    const RM = mat3(
+      cos(phi), 0, sin(phi),
+      0, 1, 0,
+      sin(phi).mul(-1), 0, cos(phi)
+    );
+    const RM2 = mat2(
+      cos(phi), sin(phi),
+      sin(phi).mul(-1), cos(phi)
+    );
+
+    // compute rotated uv
+    const uvr = RM2.mul(uv);
+    // const y = float(-0.01).div(d);
+    const dr = d.mul(3);
+    // const randZ = hash( instanceIndex.add( 2 ) );
+    const y = float(1).mul(exp(pow(dr,2).mul(-1)))
+    // const h = float(-0.1).mul(exp(pow(dr,2).mul(-1)))
+    // .add(randZ.mul(0.01));
+
+    // const pos_funnel = vec3(uvr.x,y,uvr.y);
+
+    const n = perlin_noise(vec3(uv,0.0).mul(10)).mul(0.5).add(0.5);
+
+    // const h = -2.0;
+    // const h = n;
+    const h = y.add(n.mul(0.2));
+    textureStore( heightTexture, indexUV, vec4( vec3(h), 1 ) ).toWriteOnly();
+    // textureStore( heightTexture, indexUV, vec4( vec3(uvr,0), 1 ) ).toWriteOnly();
+  } )().compute( heightCount );
+
+  MaterialFactory.computeShadow = Fn( () => {
+    const posX = instanceIndex.modInt( heightRes );
+    const posY = instanceIndex.div( heightRes );
+    const indexUV = uvec2( posX, posY );
+    const uvn = vec2(posX,posY).div(heightRes);
+    const uv = uvn.mul(2).sub(1);
+
+
+    const h = texture(heightTexture,uvn).x;
+
+    const p0 = vec3(uvn,h);
+    const p_delta = vec3(0.0,0.05,0.1);
+    const shadow = float(0).toVar();
+
+    Loop( { start: float( 1 ), end: float( 4 ) }, ( { i } ) => {
+      const sp = p0.add(p_delta.mul(i));
+      const sh = texture(heightTexture,sp.xy).x;
+      If( sp.z.lessThan( sh ), () => {
+      // If( sh.lessThan( sp.z ), () => {
+        shadow.addAssign(1);
+      } );
+    } );
+
+
+    // const h0 = texture(heightTexture,(p0.add(p_delta).mul(1).).x;
+
+    textureStore( MaterialFactory.shadowTexture, indexUV, vec4(h,select(shadow.lessThan(0.5),1,0),0,1) ).toWriteOnly();
+    // textureStore( MaterialFactory.shadowTexture, indexUV, vec4(h,select(h.lessThan(0.5),1,0.2),0,1) ).toWriteOnly();
+    // textureStore( shadowTexture, indexUV, vec4(h,select(shadow.greaterThan(0.5),1,0),0,1) ).toWriteOnly();
+    // textureStore( heightTexture, indexUV, vec4( vec3(uvr,0), 1 ) ).toWriteOnly();
+  } )().compute( heightCount );
+
+  // const heightBufferAttribute = new THREE.StorageBufferAttribute( new Float32Array(heightCount), 1 );
+  // const heightStorage = storage( heightBufferAttribute, 'float', heightBufferAttribute.count ).label( 'heightStorage' );
+  // const heightRead = storageObject( heightBufferAttribute, 'float', heightBufferAttribute.count ).toReadOnly();
+  // MaterialFactory.computeHeight = Fn( () => {
+  //   const posX = instanceIndex.modInt( heightRes );
+  //   const posY = instanceIndex.div( heightRes );
+  //   heightStorage.element( instanceIndex ).assign( posX );
+  // } )().compute( heightRes*heightRes );
+
+  // particles
   const count = 2000000;
   // const count = 0 ? 20000000 : 500000;
 //   const count = 1 ? 8000000 : 200000;
@@ -481,8 +593,15 @@ function init() {
 
 
   const materialFX = new THREE.MeshBasicNodeMaterial();
+  // materialFX.colorNode = texture( heightTexture );
   materialFX.colorNode = Fn( ()=>{
+
     const uv = positionLocal.xy.add(1).mul(0.5);
+    const test = texture(MaterialFactory.shadowTexture,uv).rgb;
+    return vec4(test,1);
+    return vec4(select(test.lessThan(-1),1,0.3),0,0,1);
+
+    return vec4(test,0,0,1);
     const angle = atan2(positionLocal.y,positionLocal.x).div(2*3.1415);
     const d = length(positionLocal.xy);
     const polar_uv = vec2(angle.mul(1),d.mul(d));
@@ -491,7 +610,7 @@ function init() {
 
     const n = perlin_noise(vec3(polar_uv,0.0).mul(20)).mul(0.5).add(0.5);
 
-   // return vec4(vec3(n),1);
+  // return vec4(vec3(n),1);
     return vec4(vec3(n.mul(0.5).add(0.5)),1);
     return vec4(select(n.lessThan(0.7),1,0),0,0,1);
     return vec4(uv,0,1);
@@ -517,12 +636,16 @@ async function animate() {
 
   controls.update();
 
-  // await renderer.render( scene, camera );
+  await renderer.compute( MaterialFactory.computeHeight );
+  await renderer.compute( MaterialFactory.computeShadow );
+  await renderer.render( scene, camera );
+  // quad.render( renderer );
+
   // quad.render( renderer );
 
   // scene.overrideMaterial = scene.overrideMaterial_;
   // renderer.setRenderTarget( renderTarget );
-  await renderer.render( scene, camera );
+  // await renderer.render( scene, camera );
 
   // renderer.setRenderTarget( null );
   // scene.overrideMaterial = null;
