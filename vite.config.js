@@ -9,6 +9,7 @@ export default defineConfig({
     quasar()
   ],
   optimizeDeps: {
-    include: ['quasar']
+    include: ['quasar'],
+    exclude: ['three']
   }
 });
