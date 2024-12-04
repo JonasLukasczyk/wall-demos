@@ -1,8 +1,8 @@
 <script setup>
-  import DRM_Template from './components/DRM_Template.vue'
-  import DRM_Template2 from './components/DRM_Template2.vue'
-  import STEREO from './components/STEREO.vue'
-  import PARTICLES_Template from './components/PARTICLES_Template.vue'
+  // import DRM_Template from './components/DRM_Template.vue'
+  // import DRM_Template2 from './components/DRM_Template2.vue'
+  // import STEREO from './components/STEREO.vue'
+  // import PARTICLES_Template from './components/PARTICLES_Template.vue'
   import Force from './components/Force.vue'
 </script>
 
