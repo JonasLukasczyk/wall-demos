@@ -3,7 +3,8 @@
   // import DRM_Template2 from './components/DRM_Template2.vue'
   // import STEREO from './components/STEREO.vue'
   // import PARTICLES_Template from './components/PARTICLES_Template.vue'
-  import Force from './components/Force.vue'
+  // import Force from './components/Force.vue'
+  import Force from './components/Force2.vue'
 </script>
 
 <template>

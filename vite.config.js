@@ -11,5 +11,14 @@ export default defineConfig({
   optimizeDeps: {
     include: ['quasar'],
     exclude: ['three']
-  }
+  },
+  server: {
+    proxy: {
+      '/ws': {
+        target: 'localhost:4444',
+        ws: true, // <--- Important!
+        changeOrigin: true,
+      },
+    },
+  },
 });

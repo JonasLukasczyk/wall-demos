@@ -14,14 +14,11 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.join(__dirname, './dist')));
 
-let mode = 0;
 io.on('connection', (socket) => {
-  mode = mode ? 0 : 1;
-  console.log('client connected', mode);
-  socket.on('update_camera', cam=>{
-    io.emit('update_camera',cam);
+  console.log('client connected');
+  socket.on('update',data=>{
+    socket.broadcast.emit('update',data);
   });
-  socket.emit('update_display', mode);
 });
 
 const port = 4444;
